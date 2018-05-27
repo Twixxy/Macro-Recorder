@@ -11,9 +11,9 @@ struct Bound
 
 enum State
 {
-	IDLE,
-	RECORD,
-	PLAY,
+	NOTHING,
+	RECORDING,
+	PLAYING BACKING BACK,
 	COUNT
 };
 
@@ -177,7 +177,7 @@ DWORD WINAPI ThreadProcess(LPVOID lpParameter)
 	int size = events.size();
 	int i = 0;
 
-	while (state == PLAY)
+	while (state == PLAYING BACK)
 	{
 		Event &e = events[i];
 		Sleep(e.time);
@@ -194,7 +194,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 	LPKBDLLHOOKSTRUCT msg = (LPKBDLLHOOKSTRUCT)lParam;
 
-	if (state == IDLE)
+	if (state == NOTHING)
 	{
 		if (wParam != WM_KEYDOWN) return 0;
 
@@ -207,25 +207,25 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 			clockTimeEvent = msg->time;
 			events.clear();
-			SetState(State::RECORD);
+			SetState(State::RECORDING);
 		}
 		else if (msg->vkCode == VK_F7 && clockTimeEvent)
 		{
-			SetState(State::PLAY);
+			SetState(State::PLAYING BACK);
 			CreateThread(0, 0, ThreadProcess, 0, 0, 0);
 		}
 		return 0;
 	}
 
-	if (state == PLAY)
+	if (state == PLAYING BACK)
 	{
-		if (wParam == WM_KEYDOWN && msg->vkCode == VK_F8) SetState(State::IDLE);
+		if (wParam == WM_KEYDOWN && msg->vkCode == VK_F8) SetState(State::NOTHING);
 		return 0;
 	}
 
 	if (wParam == WM_KEYDOWN && msg->vkCode == VK_F6)
 	{
-		SetState(State::IDLE);
+		SetState(State::NOTHING);
 		return 0;
 	}
 
@@ -240,7 +240,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 LRESULT CALLBACK LowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
 	if (nCode != HC_ACTION) return CallNextHookEx(0, nCode, wParam, lParam);
-	if (state != RECORD) return 0;
+	if (state != RECORDING) return 0;
 
 	void(*eventConvertor)(LPMSLLHOOKSTRUCT msg, INPUT *outInput) = mouseEventConvertors[wParam & MOUSE_EVENT_MASK];
 	if (eventConvertor == 0) return 0;
@@ -255,7 +255,7 @@ LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	if (uMsg == WM_CLOSE)
 	{
-		if (state == IDLE) DestroyWindow(hwnd);
+		if (state == NOTHING) DestroyWindow(hwnd);
 		return 0;
 	}
 
@@ -283,7 +283,7 @@ int CALLBACK WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
 	HWND window = CreateWindow("kbam recorder", "KBAM event record/play", WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU, CW_USEDEFAULT, CW_USEDEFAULT, 800, 600, 0, 0, 0, 0);
 
 	edit = CreateWindow("edit", 0, WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY, 0, 0, 784, 561, window, 0, (HINSTANCE)GlobalAlloc(GMEM_MOVEABLE | GMEM_ZEROINIT | GMEM_SHARE, sizeof(HELP_STRING)), 0);
-	SetState(State::IDLE);
+	SetState(State::NOTHING);
 
 	HHOOK keyHook = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, 0, 0);
 	HHOOK mouseHook = SetWindowsHookEx(WH_MOUSE_LL, LowLevelMouseProc, 0, 0);
